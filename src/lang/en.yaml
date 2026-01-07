@@ -1,0 +1,34 @@
+interfaces:
+  inline-m2m:
+    no-read-permission: You do not have permission to read these records.
+    no-update-permission: You do not have permission to update these records.
+    no-items: No related items yet. Click the buttons below to add items.
+    create-new: Create New
+    add-existing: Add Existing
+    select-existing: Select Existing Items
+    select-items: Select Items
+    confirm-selection: Confirm Selection
+    search-placeholder: Search items...
+    no-items-found: No Items Found
+    no-items-available: There are no items available in this collection.
+    try-different-search: Try a different search term.
+    visible-columns: Visible Columns
+    configure-columns: Configure Columns
+    load-more: Load More
+    new: New
+    modified: Modified
+    unlinked: Unlinked
+    deleted: Deleted
+    existing: Existing
+    new-item: 'New Item #{index}'
+    show-more: 'Show {count} more items'
+    more-options: More Options
+    unlink: Unassign
+    unlink-description: Remove from this item only
+    delete-everywhere: Delete Everywhere
+    delete-description: Delete item and all its references
+    delete-blocked: Cannot Delete Item
+    delete-blocked-description: This item is linked to other collections. Use 'Unassign' instead to remove it from this relation without deleting it.
+    remove: Remove
+    undo-delete: Undo Delete
+    undo-unlink: Undo Unlink
