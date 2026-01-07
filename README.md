@@ -67,5 +67,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Credits
 
 - Inspired by [directus-extension-inline-form-interface](https://github.com/hanneskuettner/directus-extension-inline-form-interface) by **Hannes Küttner** and the UI/UX approach of [directus-expandable-blocks](https://github.com/smartlabsAT/directus-expandable-blocks) by **smartlabsAT**.
-# directus-extension-inline-m2m
-# directus-extension-inline-m2m
+
