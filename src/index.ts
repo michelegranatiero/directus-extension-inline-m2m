@@ -1,4 +1,4 @@
-import { defineInterface } from '@directus/extensions-sdk';
+import { defineInterface, useStores } from '@directus/extensions-sdk';
 import InterfaceInlineM2M from './inline-m2m-interface.vue';
 
 export default defineInterface({
@@ -36,6 +36,36 @@ export default defineInterface({
 									collectionName: junctionCollection,
 								},
 								note: 'Template to display for each item header. Use {{field_name}} syntax.',
+							},
+			},
+			{
+				field: 'excludedFields',
+				type: 'json',
+				name: 'Hidden Fields',
+				meta:
+					editing === '+'
+						? {
+								width: 'full',
+								interface: 'presentation-notice',
+								options: {
+									text: 'Save this field first to configure hidden fields.',
+								},
+							}
+						: {
+								width: 'full',
+								interface: 'select-multiple-dropdown',
+								options: {
+									choices: (() => {
+										if (!relatedCollection) return [];
+										const { useFieldsStore } = useStores();
+										const fieldsStore = useFieldsStore();
+										const fields = fieldsStore.getFieldsForCollection(relatedCollection);
+										return fields
+											.filter((f) => !f.meta?.hidden)
+											.map((f) => ({ text: f.name || f.field, value: f.field }));
+									})(),
+								},
+								note: 'Select fields to HIDE from the inline form. Only visible fields are shown in this list.',
 							},
 			},
 			{

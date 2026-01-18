@@ -6,15 +6,11 @@
 		{{ t('relationship_not_setup') }}
 	</v-notice>
 	<div v-else class="m2m-wrapper">
-		<v-notice v-if="!createAllowed && !updateAllowed" type="warning">
-			{{ t('interfaces.inline-m2m.no-update-permission') }}
-		</v-notice>
-
 		<!-- Items list -->
 		<draggable
 			v-if="visibleItems.length > 0"
 			v-model="draggableItems"
-			:disabled="disabled"
+			:disabled="disabled || !junctionUpdateAllowed"
 			:item-key="(item: DisplayItem) => getItemKey(item, item.$index)"
 			handle=".drag-handle"
 			:animation="150"
@@ -30,9 +26,12 @@
 					:key="getItemKey(item, index)"
 					:item="item"
 					:title="getItemTitle(item, index)"
-					:is-expanded="expandedItems[getItemKey(item, index)] || false"
-					:disabled="disabled || false"
-					:delete-allowed="deleteAllowed"
+					:is-expanded="isExpanded(getItemKey(item, index))"
+					:disabled="disabled"
+					:form-disabled="disabled || !relatedUpdateAllowed"
+					:drag-allowed="junctionUpdateAllowed && !disabled"
+					:unlink-allowed="junctionDeleteAllowed && !disabled"
+					:delete-allowed="relatedDeleteAllowed && !disabled"
 					:primary-key="getRelatedPrimaryKey(item)"
 					:fields="relatedFields"
 					@toggle-expand="toggleExpand(getItemKey(item, index))"
@@ -46,9 +45,9 @@
 		</draggable>
 
 		<!-- Empty state -->
-		<v-notice v-else-if="!loading" type="info" class="empty-notice">
+		<div v-else-if="!loading" class="empty-state">
 			{{ t('interfaces.inline-m2m.no-items') }}
-		</v-notice>
+		</div>
 
 		<!-- Loading state -->
 		<v-progress-linear v-if="loading" indeterminate />
@@ -65,10 +64,10 @@
 		</v-button>
 
 		<!-- Action buttons -->
-		<div class="action-buttons">
+		<div v-if="(enableCreate && relatedCreateAllowed && junctionCreateAllowed && !disabled) || (enableSelect && junctionCreateAllowed && !disabled)" class="action-buttons">
 			<!-- Add new item button -->
 			<v-button
-				v-if="enableCreate && createAllowed && !disabled"
+				v-if="enableCreate && relatedCreateAllowed && junctionCreateAllowed && !disabled"
 				class="add-button"
 				@click="addNewItem"
 			>
@@ -78,7 +77,7 @@
 
 			<!-- Add existing item button -->
 			<v-button
-				v-if="enableSelect && !disabled"
+				v-if="enableSelect && junctionCreateAllowed && !disabled"
 				class="add-existing-button"
 				@click="selectModalActive = true"
 			>
@@ -89,7 +88,7 @@
 
 		<!-- Select existing items drawer -->
 		<drawer-collection
-			v-if="enableSelect && !disabled && relationInfo"
+			v-if="enableSelect && junctionCreateAllowed && !disabled && relationInfo"
 			v-model:active="selectModalActive"
 			:collection="relationInfo.relatedCollection.collection"
 			:selection="[]"
@@ -97,6 +96,7 @@
 			multiple
 			@input="selectExistingItems"
 		/>
+
 	</div>
 </template>
 
@@ -128,6 +128,7 @@ interface Props {
 	limit?: number;
 	allowDuplicates?: boolean;
 	filter?: Record<string, any> | null;
+	excludedFields?: string[] | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -140,6 +141,7 @@ const props = withDefaults(defineProps<Props>(), {
 	limit: 10,
 	allowDuplicates: false,
 	filter: null,
+	excludedFields: null,
 });
 
 const emit = defineEmits<{
@@ -164,14 +166,30 @@ const isNewDummy = ref(true);
 
 const {
 	fields: fieldsWithPermissions,
-	createAllowed,
-	updateAllowed,
-	deleteAllowed,
+	createAllowed: relatedCreateAllowed,
+	updateAllowed: relatedUpdateAllowed,
+	deleteAllowed: relatedDeleteAllowed,
 } = usePermissions(
 	computed(() => relationInfo.value?.relatedCollection.collection ?? ''),
 	dummyItem,
 	isNewDummy,
 );
+
+// Permissions for junction collection
+const junctionCreateAllowed = computed(() => {
+	if (!relationInfo.value) return false;
+	return hasPermission(relationInfo.value.junctionCollection.collection, 'create');
+});
+
+const junctionUpdateAllowed = computed(() => {
+	if (!relationInfo.value) return false;
+	return hasPermission(relationInfo.value.junctionCollection.collection, 'update');
+});
+
+const junctionDeleteAllowed = computed(() => {
+	if (!relationInfo.value) return false;
+	return hasPermission(relationInfo.value.junctionCollection.collection, 'delete');
+});
 
 const readAllowed = computed(() => {
 	if (!relationInfo.value) return false;
@@ -216,9 +234,9 @@ const {
 
 // Use M2M Display composable
 const {
-	expandedItems,
+	isExpanded,
 	toggleExpand,
-	autoExpandItem,
+	expandItem,
 	getItemTitle,
 } = useM2MDisplay({
 	relationInfo,
@@ -242,16 +260,22 @@ const { selectFilter } = useM2MFilters({
 	userFilter: toRefs(props).filter,
 });
 
-// Filter out circular fields
+// Filter out circular fields and apply user-excluded fields filter
 const relatedFields = computed(() => {
 	if (!relationInfo.value) return [];
 
 	let fields = fieldsWithPermissions.value;
 
+	// Filter out circular fields (back-reference to parent)
 	if (!isNil(relationInfo.value.relation.meta?.one_field)) {
 		fields = fields.filter(
 			(f: Field) => f.field !== relationInfo.value?.relation.meta?.one_field
 		);
+	}
+
+	// If user has excluded specific fields, filter them out
+	if (props.excludedFields && props.excludedFields.length > 0) {
+		fields = fields.filter((f: Field) => !props.excludedFields!.includes(f.field));
 	}
 
 	return fields;
@@ -282,7 +306,7 @@ watch(
 // Watch for external value reset (after save or discard)
 watch(
 	() => props.value,
-	(newValue: any, oldValue: any) => {
+	async (newValue: any, oldValue: any) => {
 		if (isFetching.value) return;
 		
 		const wasChanges = oldValue && typeof oldValue === 'object' && 
@@ -290,16 +314,20 @@ watch(
 		const isReset = newValue === null || newValue === undefined || Array.isArray(newValue);
 		
 		if (wasChanges && isReset && !isParentNew.value) {
-			fetchItems();
+			await fetchItems();
 		}
 	}
 );
+
+
 
 // Wrapper functions that call composable methods and emit changes
 function addNewItem() {
 	const result = addNewItemInternal();
 	if (result) {
-		autoExpandItem(result.item, result.index);
+		// Auto-expand newly created items
+		const newKey = `new-${result.index}`;
+		expandItem(newKey);
 		emitValue();
 	}
 }
@@ -308,9 +336,6 @@ async function selectExistingItems(selectedIds: (string | number)[] | null) {
 	if (!selectedIds) return;
 	const addedItems = await selectExistingItemsInternal(selectedIds);
 	if (addedItems && addedItems.length > 0) {
-		addedItems.forEach(({ item, index }) => {
-			autoExpandItem(item, index);
-		});
 		emitValue();
 	}
 }
@@ -393,8 +418,10 @@ function emitValue() {
 	z-index: 100;
 }
 
-.empty-notice {
-	margin-bottom: 8px;
+.empty-state {
+	color: var(--theme--foreground-subdued, var(--foreground-subdued));
+	font-style: italic;
+	padding: 8px 0;
 }
 
 .action-buttons {

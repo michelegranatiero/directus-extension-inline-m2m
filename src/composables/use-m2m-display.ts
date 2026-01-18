@@ -13,18 +13,23 @@ export interface UseM2MDisplayOptions {
 export function useM2MDisplay(options: UseM2MDisplayOptions) {
 	const { relationInfo, template, t } = options;
 
+	// Track expanded items - items are collapsed by default
 	const expandedItems = reactive<Record<string, boolean>>({});
 
 	function getItemKey(item: DisplayItem, index: number): string {
 		return item.$junctionId ? String(item.$junctionId) : `new-${index}`;
 	}
 
+	function isExpanded(key: string): boolean {
+		// Default is collapsed (false), only true if explicitly expanded
+		return expandedItems[key] === true;
+	}
+
 	function toggleExpand(key: string) {
 		expandedItems[key] = !expandedItems[key];
 	}
 
-	function autoExpandItem(item: DisplayItem, index: number) {
-		const key = getItemKey(item, index);
+	function expandItem(key: string) {
 		expandedItems[key] = true;
 	}
 
@@ -69,8 +74,9 @@ export function useM2MDisplay(options: UseM2MDisplayOptions) {
 	return {
 		expandedItems,
 		getItemKey,
+		isExpanded,
 		toggleExpand,
-		autoExpandItem,
+		expandItem,
 		getItemTitle,
 	};
 }

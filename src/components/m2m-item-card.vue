@@ -11,7 +11,7 @@
 		<div class="card-header" @click="$emit('toggle-expand')">
 			<div class="header-left">
 				<v-icon
-					v-if="!disabled"
+					v-if="dragAllowed && !disabled"
 					name="drag_indicator"
 					class="drag-handle"
 					@click.stop
@@ -39,7 +39,7 @@
 			<div class="header-right">
 				<!-- Unassign button for existing items -->
 				<v-icon
-					v-if="!disabled && item.$type !== 'deleted' && item.$type !== 'created' && item.$type !== 'unlinked'"
+					v-if="unlinkAllowed && item.$type !== 'deleted' && item.$type !== 'created' && item.$type !== 'unlinked'"
 					name="link_off"
 					class="unassign-icon"
 					v-tooltip="t('interfaces.inline-m2m.unlink')"
@@ -48,7 +48,8 @@
 
 				<!-- Actions menu for existing items -->
 				<v-menu
-					v-if="!disabled && item.$type !== 'deleted' && item.$type !== 'created' && item.$type !== 'unlinked' && deleteAllowed"
+					v-if="deleteAllowed && item.$type !== 'deleted' && item.$type !== 'created' && item.$type !== 'unlinked'"
+					v-model="menuActive"
 					placement="bottom-end"
 					show-arrow
 				>
@@ -58,6 +59,7 @@
 							x-small
 							icon
 							secondary
+							class="header-button"
 							@click.stop="toggle"
 						>
 							<v-icon name="more_vert" />
@@ -68,7 +70,7 @@
 						<v-list-item
 							clickable
 							class="danger"
-							@click.stop="$emit('delete')"
+							@click.stop="handleDelete"
 						>
 							<v-list-item-icon>
 								<v-icon name="delete" />
@@ -95,7 +97,7 @@
 					v-if="item.$type === 'deleted' || item.$type === 'unlinked'"
 					name="undo"
 					class="undo-icon"
-					:v-tooltip="item.$type === 'deleted' ? t('interfaces.inline-m2m.undo-delete') : t('interfaces.inline-m2m.undo-unlink')"
+					v-tooltip="item.$type === 'deleted' ? t('interfaces.inline-m2m.undo-delete') : t('interfaces.inline-m2m.undo-unlink')"
 					@click.stop="$emit('undo')"
 				/>
 			</div>
@@ -109,7 +111,7 @@
 			>
 				<v-form
 					v-model="item.$edits"
-					:disabled="disabled"
+					:disabled="formDisabled"
 					:loading="item.$loading"
 					:show-no-visible-fields="false"
 					:initial-values="item.$item || {}"
@@ -124,6 +126,7 @@
 </template>
 
 <script lang="ts" setup>
+import { ref, nextTick } from 'vue';
 import { useI18n } from '@/composables/use-i18n';
 import type { DisplayItem } from '@/composables/use-m2m-items';
 import type { Field } from '@directus/types';
@@ -133,6 +136,9 @@ interface Props {
 	title: string;
 	isExpanded: boolean;
 	disabled?: boolean;
+	formDisabled?: boolean;
+	dragAllowed: boolean;
+	unlinkAllowed: boolean;
 	deleteAllowed: boolean;
 	primaryKey: string | number;
 	fields: Field[];
@@ -140,7 +146,7 @@ interface Props {
 
 defineProps<Props>();
 
-defineEmits<{
+const emit = defineEmits<{
 	(e: 'toggle-expand'): void;
 	(e: 'unlink'): void;
 	(e: 'delete'): void;
@@ -150,6 +156,14 @@ defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const menuActive = ref(false);
+
+async function handleDelete() {
+	menuActive.value = false;
+	await nextTick();
+	emit('delete');
+}
 </script>
 
 <style lang="scss" scoped>
@@ -208,6 +222,11 @@ const { t } = useI18n();
 	display: flex;
 	align-items: center;
 	gap: 4px;
+}
+
+.header-button {
+	--v-button-background-color: var(--theme--background-subdued, var(--background-subdued));
+	--v-button-background-color-hover: var(--theme--background-normal, var(--background-normal-alt));
 }
 
 .drag-handle {

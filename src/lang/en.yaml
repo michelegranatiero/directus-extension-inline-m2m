@@ -2,7 +2,7 @@ interfaces:
   inline-m2m:
     no-read-permission: You do not have permission to read these records.
     no-update-permission: You do not have permission to update these records.
-    no-items: No related items yet. Click the buttons below to add items.
+    no-items: No items
     create-new: Create New
     add-existing: Add Existing
     select-existing: Select Existing Items
@@ -26,9 +26,13 @@ interfaces:
     unlink: Unassign
     unlink-description: Remove from this item only
     delete-everywhere: Delete Everywhere
-    delete-description: Delete item and all its references
+    delete-description: Permanently delete this item from all locations
     delete-blocked: Cannot Delete Item
     delete-blocked-description: This item is linked to other collections. Use 'Unassign' instead to remove it from this relation without deleting it.
     remove: Remove
     undo-delete: Undo Delete
     undo-unlink: Undo Unlink
+    confirm-delete-title: Confirm Deletion
+    confirm-delete-text: Are you sure you want to permanently delete this item?
+    cancel: Cancel
+    delete: Delete

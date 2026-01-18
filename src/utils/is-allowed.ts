@@ -14,11 +14,9 @@ export function isAllowed(
 
 	if (userStore.isAdmin === true) return true;
 
-	const permissions = permissionsStore.permissions;
-
-	const permissionInfo = permissions.find(
-		(permission: Permission) => permission.action === action && permission.collection === collection
-	);
+	// Use getPermission method instead of accessing permissions array directly
+	// This is more reliable across different Directus versions
+	const permissionInfo = permissionsStore.getPermission(collection, action);
 
 	if (!permissionInfo) return false;
 	if (!permissionInfo.fields && action !== 'share') return false;
