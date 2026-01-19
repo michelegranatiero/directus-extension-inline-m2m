@@ -102,7 +102,7 @@
 
 <script lang="ts" setup>
 import { useStores } from '@directus/extensions-sdk';
-import { computed, ref, toRefs, watch } from 'vue';
+import { computed, ref, toRefs, watch, inject } from 'vue';
 import { useI18n } from '@/composables/use-i18n';
 import { isNil } from 'lodash-es';
 import { useRelationM2M } from '@/composables/use-relation-m2m';
@@ -150,6 +150,9 @@ const emit = defineEmits<{
 
 const { collection, field } = toRefs(props);
 const { t } = useI18n();
+
+// Inject form values for template variable resolution in filters
+const formValues = inject('values', ref<Record<string, any>>({}));
 
 const { relationInfo } = useRelationM2M(collection, field);
 
@@ -258,6 +261,7 @@ const { selectFilter } = useM2MFilters({
 	allItems,
 	allowDuplicates: toRefs(props).allowDuplicates,
 	userFilter: toRefs(props).filter,
+	formValues,
 });
 
 // Filter out circular fields and apply user-excluded fields filter

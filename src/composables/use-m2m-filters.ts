@@ -1,5 +1,7 @@
 import { computed, Ref } from 'vue';
 import { get } from 'lodash-es';
+import { deepMap } from '@directus/utils';
+import { render } from 'micromustache';
 import type { DisplayItem } from './use-m2m-items';
 import type { RelationM2M } from './use-relation-m2m';
 import type { Filter } from '@directus/types';
@@ -9,10 +11,11 @@ export interface UseM2MFiltersOptions {
 	allItems: Ref<DisplayItem[]>;
 	allowDuplicates: Ref<boolean>;
 	userFilter: Ref<Record<string, any> | null | undefined>;
+	formValues: Ref<Record<string, any>>;
 }
 
 export function useM2MFilters(options: UseM2MFiltersOptions) {
-	const { relationInfo, allItems, allowDuplicates, userFilter } = options;
+	const { relationInfo, allItems, allowDuplicates, userFilter, formValues } = options;
 
 	// Filter for select drawer - combine user filter + exclude already selected items
 	const selectFilter = computed<Filter | null>(() => {
@@ -20,9 +23,20 @@ export function useM2MFilters(options: UseM2MFiltersOptions) {
 
 		const filters: any[] = [];
 
-		// Add user-defined filter if exists
+		// Add user-defined filter if exists, with template variable resolution
 		if (userFilter.value) {
-			filters.push(userFilter.value);
+			// Resolve template variables like {{status}}, {{user_created}} etc.
+			const resolvedFilter = deepMap(userFilter.value, (val: any) => {
+				if (val && typeof val === 'string') {
+					try {
+						return render(val, formValues.value);
+					} catch {
+						return val;
+					}
+				}
+				return val;
+			});
+			filters.push(resolvedFilter);
 		}
 
 		// Exclude already selected items (unless allowDuplicates is enabled)

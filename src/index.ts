@@ -61,8 +61,8 @@ export default defineInterface({
 										const fieldsStore = useFieldsStore();
 										const fields = fieldsStore.getFieldsForCollection(relatedCollection);
 										return fields
-											.filter((f) => !f.meta?.hidden)
-											.map((f) => ({ text: f.name || f.field, value: f.field }));
+											.filter((f: any) => !f.meta?.hidden)
+											.map((f: any) => ({ text: f.name || f.field, value: f.field }));
 									})(),
 								},
 								note: 'Select fields to HIDE from the inline form. Only visible fields are shown in this list.',
@@ -95,23 +95,6 @@ export default defineInterface({
 					interface: 'boolean',
 					options: {
 						label: '$t:enable_select_button',
-					},
-				},
-			},
-			{
-				field: 'limit',
-				type: 'integer',
-				name: '$t:per_page',
-				schema: {
-					default_value: 10,
-				},
-				meta: {
-					width: 'half',
-					interface: 'input',
-					note: 'Number of items to display before showing "Show more" button.',
-					options: {
-						min: 1,
-						max: 100,
 					},
 				},
 			},
