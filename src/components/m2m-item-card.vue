@@ -109,7 +109,27 @@
 				v-if="isExpanded && item.$type !== 'deleted' && item.$type !== 'unlinked'"
 				class="card-content"
 			>
+				<!-- Junction fields form (shown at top if junctionFieldLocation is 'top') -->
 				<v-form
+					v-if="junctionFieldLocation === 'top' && junctionFields && junctionFields.length > 0"
+					v-model="item.$junctionEdits"
+					:disabled="junctionFormDisabled"
+					:loading="item.$loading"
+					:initial-values="item.$junctionItem || {}"
+					:primary-key="item.$junctionId || '+'"
+					:fields="junctionFields"
+					:validation-errors="[]"
+					@update:model-value="$emit('edit')"
+				/>
+
+				<!-- Divider between junction and related fields (when junction is at top) -->
+				<v-divider 
+					v-if="junctionFieldLocation === 'top' && junctionFields && junctionFields.length > 0 && fields && fields.length > 0"
+				/>
+
+				<!-- Related item fields form -->
+				<v-form
+					v-if="fields && fields.length > 0"
 					v-model="item.$edits"
 					:disabled="formDisabled"
 					:loading="item.$loading"
@@ -117,6 +137,24 @@
 					:initial-values="item.$item || {}"
 					:primary-key="primaryKey"
 					:fields="fields"
+					:validation-errors="[]"
+					@update:model-value="$emit('edit')"
+				/>
+
+				<!-- Divider between related and junction fields (when junction is at bottom) -->
+				<v-divider 
+					v-if="junctionFieldLocation === 'bottom' && junctionFields && junctionFields.length > 0 && fields && fields.length > 0"
+				/>
+
+				<!-- Junction fields form (shown at bottom if junctionFieldLocation is 'bottom') -->
+				<v-form
+					v-if="junctionFieldLocation === 'bottom' && junctionFields && junctionFields.length > 0"
+					v-model="item.$junctionEdits"
+					:disabled="junctionFormDisabled"
+					:loading="item.$loading"
+					:initial-values="item.$junctionItem || {}"
+					:primary-key="item.$junctionId || '+'"
+					:fields="junctionFields"
 					:validation-errors="[]"
 					@update:model-value="$emit('edit')"
 				/>
@@ -137,14 +175,19 @@ interface Props {
 	isExpanded: boolean;
 	disabled?: boolean;
 	formDisabled?: boolean;
+	junctionFormDisabled?: boolean;
 	dragAllowed: boolean;
 	unlinkAllowed: boolean;
 	deleteAllowed: boolean;
 	primaryKey: string | number;
 	fields: Field[];
+	junctionFields?: Field[];
+	junctionFieldLocation?: 'top' | 'bottom';
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), {
+	junctionFieldLocation: 'top',
+});
 
 const emit = defineEmits<{
 	(e: 'toggle-expand'): void;
@@ -326,6 +369,9 @@ async function handleDelete() {
 .card-content {
 	padding: 16px;
 	background-color: var(--theme--background, var(--background-page));
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 /* Expand transition */

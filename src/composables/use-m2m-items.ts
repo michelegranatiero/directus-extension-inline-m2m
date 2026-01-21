@@ -9,6 +9,8 @@ export interface DisplayItem {
 	$type: 'existing' | 'created' | 'updated' | 'deleted' | 'unlinked';
 	$item: Record<string, any>;
 	$edits: Record<string, any>;
+	$junctionItem: Record<string, any>;
+	$junctionEdits: Record<string, any>;
 	$loading?: boolean;
 	$junctionId?: string | number;
 	$isExistingLink?: boolean;
@@ -98,11 +100,25 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 				(junctionItem: Record<string, any>, idx: number) => {
 					const relatedItem = junctionItem[junctionFieldName] || {};
 					const originalSort = sortField.value ? junctionItem[sortField.value] : idx;
+					
+					// Extract junction-only fields (exclude FK fields, related item, and PK)
+					const junctionOnlyFields: Record<string, any> = {};
+					for (const key of Object.keys(junctionItem)) {
+						// Skip the junction PK, the related item field, and the reverse junction field
+						if (key !== junctionPKField && 
+							key !== junctionFieldName && 
+							key !== reverseJunctionFieldName) {
+							junctionOnlyFields[key] = junctionItem[key];
+						}
+					}
+					
 					return {
 						$index: idx,
 						$type: 'existing' as const,
 						$item: relatedItem,
 						$edits: {},
+						$junctionItem: junctionOnlyFields,
+						$junctionEdits: {},
 						$loading: false,
 						$junctionId: junctionItem[junctionPKField],
 						$originalSort: originalSort,
@@ -136,6 +152,8 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 			$type: 'created',
 			$item: {},
 			$edits: {},
+			$junctionItem: {},
+			$junctionEdits: {},
 			$loading: false,
 		};
 
@@ -235,15 +253,17 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 		isDirty.value = true;
 	}
 
-	// Handle item edit
+	// Handle item edit (related item or junction item)
 	function onItemEdited(index: number) {
 		const item = allItems.value[index];
 
 		if (!item) return;
 
-		if (item.$type === 'existing' && Object.keys(item.$edits).length > 0) {
+		const hasEdits = Object.keys(item.$edits).length > 0 || Object.keys(item.$junctionEdits).length > 0;
+
+		if (item.$type === 'existing' && hasEdits) {
 			item.$type = 'updated';
-		} else if (item.$type === 'updated' && Object.keys(item.$edits).length === 0) {
+		} else if (item.$type === 'updated' && !hasEdits) {
 			item.$type = 'existing';
 		}
 
@@ -280,6 +300,8 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 					$type: 'created',
 					$item: relatedItem,
 					$edits: {},
+					$junctionItem: {},
+					$junctionEdits: {},
 					$loading: false,
 					$isExistingLink: true,
 				};

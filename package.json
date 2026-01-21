@@ -2,7 +2,7 @@
   "name": "directus-extension-inline-m2m",
   "description": "Inline interface for Directus M2M relationships with accordion-style forms, drag-and-drop sorting, and nested support",
   "icon": "extension",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "GPL-3.0-or-later",
   "author": "Michele Granatiero",
   "repository": {

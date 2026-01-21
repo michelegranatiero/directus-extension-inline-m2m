@@ -36,3 +36,5 @@ interfaces:
     confirm-delete-text: Are you sure you want to permanently delete this item?
     cancel: Cancel
     delete: Delete
+    junction-fields: Link Properties
+    related-fields: Item Details

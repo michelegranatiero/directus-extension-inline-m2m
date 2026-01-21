@@ -40,6 +40,8 @@ export function useM2MEmit(options: UseM2MEmitOptions) {
 					if (existingPK !== undefined && existingPK !== null) {
 						const junctionItem: Record<string, any> = {
 							[junctionFieldName]: existingPK,
+							// Include junction edits (like 'language' field)
+							...item.$junctionEdits,
 						};
 
 						if (sortField.value) {
@@ -50,31 +52,48 @@ export function useM2MEmit(options: UseM2MEmitOptions) {
 						hasChanges = true;
 					}
 				} else {
-					// Create new related item - only if there are actual edits
-					if (Object.keys(item.$edits).length > 0) {
-						const junctionItem: Record<string, any> = {
-							[junctionFieldName]: item.$edits,
-						};
+					// Create new related item - always emit if item was created
+					// Even if no edits, the related item will be created with its default values
+					const junctionItem: Record<string, any> = {
+						[junctionFieldName]: item.$edits,
+						// Include junction edits (like 'language' field)
+						...item.$junctionEdits,
+					};
 
-						if (sortField.value) {
-							junctionItem[sortField.value] = index;
-						}
-
-						emitArray.push(junctionItem);
-						hasChanges = true;
+					if (sortField.value) {
+						junctionItem[sortField.value] = index;
 					}
+
+					emitArray.push(junctionItem);
+					hasChanges = true;
 				}
 			} else if (item.$type === 'updated') {
 				// Modified existing item
 				if (item.$junctionId) {
 					const relatedPK = get(item.$item, relatedPKField);
+					const hasRelatedEdits = Object.keys(item.$edits).length > 0;
+					const hasJunctionEdits = Object.keys(item.$junctionEdits || {}).length > 0;
+					
+					// Only emit if there are actual edits
+					if (!hasRelatedEdits && !hasJunctionEdits) {
+						// No changes, just reference the existing junction ID
+						emitArray.push(item.$junctionId);
+						return;
+					}
+					
 					const junctionItem: Record<string, any> = {
 						[junctionPKField]: item.$junctionId,
-						[junctionFieldName]: {
+						// Include junction edits at root level
+						...item.$junctionEdits,
+					};
+					
+					// Only include related item updates if there are edits
+					if (hasRelatedEdits) {
+						junctionItem[junctionFieldName] = {
 							[relatedPKField]: relatedPK,
 							...item.$edits,
-						},
-					};
+						};
+					}
 
 					if (sortField.value) {
 						junctionItem[sortField.value] = index;

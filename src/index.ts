@@ -57,12 +57,17 @@ export default defineInterface({
 								options: {
 									choices: (() => {
 										if (!relatedCollection) return [];
-										const { useFieldsStore } = useStores();
-										const fieldsStore = useFieldsStore();
-										const fields = fieldsStore.getFieldsForCollection(relatedCollection);
-										return fields
-											.filter((f: any) => !f.meta?.hidden)
-											.map((f: any) => ({ text: f.name || f.field, value: f.field }));
+										try {
+											const { useFieldsStore } = useStores();
+											const fieldsStore = useFieldsStore();
+											const fields = fieldsStore.getFieldsForCollection(relatedCollection);
+											return fields
+												.filter((f: any) => !f.meta?.hidden)
+												.map((f: any) => ({ text: f.name || f.field, value: f.field }));
+										} catch {
+											// useStores not available in this context (e.g., during field creation)
+											return [];
+										}
 									})(),
 								},
 								note: 'Select fields to HIDE from the inline form. Only visible fields are shown in this list.',
@@ -114,6 +119,25 @@ export default defineInterface({
 					note: 'Allow selecting the same related item multiple times.',
 				},
 			},
+      {
+        field: 'junctionFieldLocation',
+        type: 'string',
+        name: 'Junction Fields Location',
+        schema: {
+          default_value: 'top',
+        },
+        meta: {
+          width: 'half',
+          interface: 'select-dropdown',
+          options: {
+            choices: [
+              { text: 'Top', value: 'top' },
+              { text: 'Bottom', value: 'bottom' },
+            ],
+          },
+          note: 'Where to display the junction table fields (Link Properties) relative to the related item fields.',
+        },
+      },
 			{
 				field: 'filter',
 				type: 'json',

@@ -29,11 +29,14 @@
 					:is-expanded="isExpanded(getItemKey(item, index))"
 					:disabled="disabled"
 					:form-disabled="disabled || !relatedUpdateAllowed"
+					:junction-form-disabled="disabled || !junctionFieldsUpdateAllowed"
 					:drag-allowed="junctionUpdateAllowed && !disabled"
 					:unlink-allowed="junctionDeleteAllowed && !disabled"
 					:delete-allowed="relatedDeleteAllowed && !disabled"
 					:primary-key="getRelatedPrimaryKey(item)"
 					:fields="relatedFields"
+					:junction-fields="junctionFields"
+					:junction-field-location="junctionFieldLocation"
 					@toggle-expand="toggleExpand(getItemKey(item, index))"
 					@unlink="handleUnlinkItem(index)"
 					@delete="handleDeleteItem(index)"
@@ -129,6 +132,7 @@ interface Props {
 	allowDuplicates?: boolean;
 	filter?: Record<string, any> | null;
 	excludedFields?: string[] | null;
+	junctionFieldLocation?: 'top' | 'bottom';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -142,6 +146,7 @@ const props = withDefaults(defineProps<Props>(), {
 	allowDuplicates: false,
 	filter: null,
 	excludedFields: null,
+	junctionFieldLocation: 'top',
 });
 
 const emit = defineEmits<{
@@ -174,6 +179,16 @@ const {
 	deleteAllowed: relatedDeleteAllowed,
 } = usePermissions(
 	computed(() => relationInfo.value?.relatedCollection.collection ?? ''),
+	dummyItem,
+	isNewDummy,
+);
+
+// Permissions and fields for junction collection
+const {
+	fields: junctionFieldsWithPermissions,
+	updateAllowed: junctionFieldsUpdateAllowed,
+} = usePermissions(
+	computed(() => relationInfo.value?.junctionCollection.collection ?? ''),
 	dummyItem,
 	isNewDummy,
 );
@@ -281,6 +296,35 @@ const relatedFields = computed(() => {
 	if (props.excludedFields && props.excludedFields.length > 0) {
 		fields = fields.filter((f: Field) => !props.excludedFields!.includes(f.field));
 	}
+
+	return fields;
+});
+
+// Junction fields - exclude FK fields (junction PK, junctionField, reverseJunctionField, sort field) and hidden fields
+const junctionFields = computed(() => {
+	if (!relationInfo.value) return [];
+
+	const junctionPKField = relationInfo.value.junctionPrimaryKeyField.field;
+	const junctionFieldName = relationInfo.value.junctionField.field;
+	const reverseJunctionFieldName = relationInfo.value.reverseJunctionField.field;
+	const sortFieldName = relationInfo.value.sortField;
+
+	let fields = junctionFieldsWithPermissions.value;
+
+	// Filter out system/FK fields and hidden fields
+	fields = fields.filter((f: Field) => {
+		// Exclude primary key
+		if (f.field === junctionPKField) return false;
+		// Exclude the FK to related collection
+		if (f.field === junctionFieldName) return false;
+		// Exclude the FK to parent collection
+		if (f.field === reverseJunctionFieldName) return false;
+		// Exclude sort field (handled automatically)
+		if (sortFieldName && f.field === sortFieldName) return false;
+		// Exclude hidden fields
+		if (f.meta?.hidden === true) return false;
+		return true;
+	});
 
 	return fields;
 });
