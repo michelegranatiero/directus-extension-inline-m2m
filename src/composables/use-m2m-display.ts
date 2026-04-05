@@ -1,8 +1,15 @@
 import { Ref, reactive } from 'vue';
 import { get } from 'lodash-es';
-import { render } from 'micromustache';
 import type { DisplayItem } from './use-m2m-items';
 import type { RelationM2M } from './use-relation-m2m';
+
+// Render a Directus display template ({{ field }} or {{ field.nested }}) against a data object
+function renderTemplate(template: string, data: Record<string, any>): string {
+	return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, path) => {
+		const value = get(data, path);
+		return value !== undefined && value !== null ? String(value) : '';
+	});
+}
 
 export interface UseM2MDisplayOptions {
 	relationInfo: Ref<RelationM2M | null>;
@@ -37,9 +44,12 @@ export function useM2MDisplay(options: UseM2MDisplayOptions) {
 		if (!relationInfo.value) return `Item ${index + 1}`;
 
 		const relatedData = { ...item.$item, ...item.$edits };
+		const junctionData = { ...item.$junctionItem, ...item.$junctionEdits };
 
 		const junctionFieldName = relationInfo.value.junctionField.field;
-		const junctionData = {
+		// Build lookup object: junction fields + related item nested + related item spread
+		const templateData = {
+			...junctionData,
 			[junctionFieldName]: relatedData,
 			...relatedData,
 		};
@@ -47,7 +57,7 @@ export function useM2MDisplay(options: UseM2MDisplayOptions) {
 		// Try template first if configured
 		if (template.value) {
 			try {
-				const rendered = render(template.value, junctionData);
+				const rendered = renderTemplate(template.value, templateData);
 				if (rendered && rendered.trim()) return rendered;
 			} catch {
 				// Template failed, fall back to defaults
@@ -60,7 +70,7 @@ export function useM2MDisplay(options: UseM2MDisplayOptions) {
 		// Try common display fields
 		const displayFields = ['name', 'title', 'label', 'display_name'];
 		for (const fieldName of displayFields) {
-			const value = get(relatedData, fieldName);
+			const value = get(templateData, fieldName);
 			if (value) return String(value);
 		}
 

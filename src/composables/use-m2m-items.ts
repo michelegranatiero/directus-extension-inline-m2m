@@ -78,7 +78,7 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 			const junctionPKField = relationInfo.value.junctionPrimaryKeyField.field;
 			const reverseJunctionFieldName = relationInfo.value.reverseJunctionField.field;
 
-			const fieldsParam = `*,${junctionFieldName}.*`;
+			const fieldsParam = `*.*`;
 			const sortParam = sortField.value || junctionPKField;
 
 			const endpoint = getEndpoint(junctionCollection);
