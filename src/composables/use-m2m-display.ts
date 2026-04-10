@@ -1,14 +1,53 @@
-import { Ref, reactive } from 'vue';
-import { get } from 'lodash-es';
+import { Ref, reactive, computed } from 'vue';
+import { useStores } from '@directus/extensions-sdk';
+import { useExtensions } from '@directus/composables';
+import { getFieldsFromTemplate } from '@directus/utils';
+import { get, set } from 'lodash-es';
+import { render } from 'micromustache';
 import type { DisplayItem } from './use-m2m-items';
 import type { RelationM2M } from './use-relation-m2m';
+import type { DisplayConfig, Field } from '@directus/types';
 
-// Render a Directus display template ({{ field }} or {{ field.nested }}) against a data object
-function renderTemplate(template: string, data: Record<string, any>): string {
-	return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, path) => {
-		const value = get(data, path);
-		return value !== undefined && value !== null ? String(value) : '';
-	});
+// Render template using Directus display handlers for each referenced field,
+// mirroring app behavior used by display templates.
+function renderDisplayTemplate(
+	template: string,
+	collection: string,
+	item: Record<string, any>,
+	getField: (collection: string, field: string) => Field | null | undefined,
+	displays: Record<string, DisplayConfig>,
+): string | null {
+	const fields = getFieldsFromTemplate(template);
+	const parsedItem: Record<string, any> = {};
+
+	for (const key of fields) {
+		const value = get(item, key);
+		const field = getField(collection, key) ?? undefined;
+		const displayId = field?.meta?.display ?? '';
+		const display = displayId ? displays[displayId] : undefined;
+
+		if (value !== undefined && value !== null) {
+			set(
+				parsedItem,
+				key,
+				display?.handler
+					? display.handler(value, field?.meta?.display_options ?? {}, {
+							interfaceOptions: field?.meta?.options ?? {},
+							field,
+							collection,
+						})
+					: value,
+			);
+		} else {
+			set(parsedItem, key, value);
+		}
+	}
+
+	try {
+		return render(template, parsedItem, { propsExist: true });
+	} catch {
+		return null;
+	}
 }
 
 export interface UseM2MDisplayOptions {
@@ -19,6 +58,14 @@ export interface UseM2MDisplayOptions {
 
 export function useM2MDisplay(options: UseM2MDisplayOptions) {
 	const { relationInfo, template, t } = options;
+	const { useFieldsStore } = useStores();
+	const fieldsStore = useFieldsStore();
+	const { displays } = useExtensions();
+
+	const displayMap = computed<Record<string, DisplayConfig>>(() => {
+		const displayList = (displays.value ?? []) as DisplayConfig[];
+		return Object.fromEntries(displayList.map((display) => [display.id, display]));
+	});
 
 	// Track expanded items - items are collapsed by default
 	const expandedItems = reactive<Record<string, boolean>>({});
@@ -56,12 +103,15 @@ export function useM2MDisplay(options: UseM2MDisplayOptions) {
 
 		// Try template first if configured
 		if (template.value) {
-			try {
-				const rendered = renderTemplate(template.value, templateData);
-				if (rendered && rendered.trim()) return rendered;
-			} catch {
-				// Template failed, fall back to defaults
-			}
+			const rendered = renderDisplayTemplate(
+				template.value,
+				relationInfo.value.junctionCollection.collection,
+				templateData,
+				fieldsStore.getField,
+				displayMap.value,
+			);
+
+			if (rendered && rendered.trim()) return rendered;
 		}
 
 		const relatedPKField = relationInfo.value.relatedPrimaryKeyField.field;

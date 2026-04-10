@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		"target": "ES2019",
 		"lib": ["ES2019", "DOM"],
-		"moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"strict": true,
 		"noFallthroughCasesInSwitch": true,
 		"esModuleInterop": true,
@@ -23,10 +23,9 @@
 		"allowSyntheticDefaultImports": true,
 		"isolatedModules": true,
 		"rootDir": "./src",
-		"baseUrl": ".",
     "paths": {
 			"@/*": [
-				"src/*"
+				"./src/*"
 			]
 		}
 	},

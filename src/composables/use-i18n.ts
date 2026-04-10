@@ -1,4 +1,5 @@
 import en from '@/lang/en.yaml';
+import it from '@/lang/it.yaml';
 import { useI18n as origI18n, UseI18nOptions } from 'vue-i18n';
 
 export function useI18n(options?: UseI18nOptions) {
@@ -6,6 +7,10 @@ export function useI18n(options?: UseI18nOptions) {
 		...options,
 		messages: {
 			en,
+			'en-US': en,
+			'en-GB': en,
+			it,
+			'it-IT': it,
 		},
 		useScope: 'local',
 	});

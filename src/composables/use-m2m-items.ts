@@ -1,8 +1,10 @@
 import { ref, Ref, computed } from 'vue';
-import { useApi } from '@directus/extensions-sdk';
-import { getEndpoint } from '@directus/utils';
+import { useApi, useStores } from '@directus/extensions-sdk';
+import { useExtensions } from '@directus/composables';
+import { getEndpoint, getFieldsFromTemplate } from '@directus/utils';
 import { get } from 'lodash-es';
 import type { RelationM2M } from './use-relation-m2m';
+import type { DisplayConfig, Field } from '@directus/types';
 
 export interface DisplayItem {
 	$index: number;
@@ -21,13 +23,22 @@ export interface UseM2MItemsOptions {
 	relationInfo: Ref<RelationM2M | null>;
 	primaryKey: Ref<string | number>;
 	limit: Ref<number>;
+	template?: Ref<string | null | undefined>;
 	notificationsStore: any;
 	t: (key: string, params?: any) => string;
 }
 
 export function useM2MItems(options: UseM2MItemsOptions) {
-	const { relationInfo, primaryKey, limit, notificationsStore, t } = options;
+	const { relationInfo, primaryKey, limit, template, notificationsStore, t } = options;
 	const api = useApi();
+	const { useFieldsStore } = useStores();
+	const fieldsStore = useFieldsStore();
+	const { displays } = useExtensions();
+
+	const displayMap = computed<Record<string, DisplayConfig>>(() => {
+		const displayList = (displays.value ?? []) as DisplayConfig[];
+		return Object.fromEntries(displayList.map((display) => [display.id, display]));
+	});
 
 	// State
 	const loading = ref(false);
@@ -57,6 +68,51 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 		return item.$junctionId ? String(item.$junctionId) : `new-${index}`;
 	}
 
+	// Local equivalent of Directus adjustFieldsForDisplays for this extension context.
+	function adjustTemplateFieldsForDisplays(fields: readonly string[], parentCollection: string): string[] {
+		const adjustedFields: string[] = [];
+
+		for (const fieldKey of fields) {
+			const field: Field | null = fieldsStore.getField(parentCollection, fieldKey);
+
+			if (!field || field.meta?.display === null) {
+				adjustedFields.push(fieldKey);
+				continue;
+			}
+
+			const displayId = field.meta?.display ?? '';
+			const display = displayId ? displayMap.value[displayId] : undefined;
+
+			if (!display?.fields) {
+				adjustedFields.push(fieldKey);
+				continue;
+			}
+
+			adjustedFields.push(fieldKey);
+
+			if (Array.isArray(display.fields)) {
+				adjustedFields.push(...display.fields.map((relatedFieldKey: string) => `${fieldKey}.${relatedFieldKey}`));
+				continue;
+			}
+
+			if (typeof display.fields === 'function') {
+				try {
+					const fieldKeys = display.fields(field.meta?.display_options, {
+						collection: field.collection,
+						field: field.field,
+						type: field.type,
+					});
+
+					adjustedFields.push(...fieldKeys.map((relatedFieldKey: string) => `${fieldKey}.${relatedFieldKey}`));
+				} catch {
+					// Ignore faulty display.fields resolution and keep the base key.
+				}
+			}
+		}
+
+		return adjustedFields;
+	}
+
 	// Fetch items from API
 	async function fetchItems() {
 		if (!relationInfo.value) return;
@@ -78,7 +134,21 @@ export function useM2MItems(options: UseM2MItemsOptions) {
 			const junctionPKField = relationInfo.value.junctionPrimaryKeyField.field;
 			const reverseJunctionFieldName = relationInfo.value.reverseJunctionField.field;
 
-			const fieldsParam = `*.*`;
+			// Include one more relation depth so nested inline interfaces (eg m2o inside m2m item)
+			// receive stable initial values after save/reload.
+			const fieldsSet = new Set<string>(['*.*', '*.*.*']);
+
+			// Include all fields referenced in header display template (including nested relations)
+			if (template?.value) {
+				const templateFields = getFieldsFromTemplate(template.value);
+				const adjustedTemplateFields = adjustTemplateFieldsForDisplays(templateFields, junctionCollection);
+
+				for (const fieldPath of adjustedTemplateFields) {
+					if (fieldPath) fieldsSet.add(fieldPath);
+				}
+			}
+
+			const fieldsParam = Array.from(fieldsSet);
 			const sortParam = sortField.value || junctionPKField;
 
 			const endpoint = getEndpoint(junctionCollection);

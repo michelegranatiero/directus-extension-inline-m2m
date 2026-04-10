@@ -167,6 +167,8 @@ const notificationsStore = useNotificationsStore();
 
 // State
 const selectModalActive = ref(false);
+const isLocalEmitEcho = ref(false);
+let localEmitEchoTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Permissions for related collection
 const dummyItem = ref({});
@@ -246,6 +248,7 @@ const {
 	relationInfo,
 	primaryKey: toRefs(props).primaryKey,
 	limit: toRefs(props).limit,
+	template: toRefs(props).template,
 	notificationsStore,
 	t,
 });
@@ -355,13 +358,10 @@ watch(
 watch(
 	() => props.value,
 	async (newValue: any, oldValue: any) => {
-		if (isFetching.value) return;
-		
-		const wasChanges = oldValue && typeof oldValue === 'object' && 
-			('create' in oldValue || 'update' in oldValue || 'delete' in oldValue);
-		const isReset = newValue === null || newValue === undefined || Array.isArray(newValue);
-		
-		if (wasChanges && isReset && !isParentNew.value) {
+		if (isFetching.value || isLocalEmitEcho.value) return;
+
+		// Parent update completed: reconcile against source of truth.
+		if (!isParentNew.value && newValue !== oldValue) {
 			await fetchItems();
 		}
 	}
@@ -420,7 +420,16 @@ function handleDragEnd() {
 
 function emitValue() {
 	const value = emitValueInternal();
+
+	// Prevent local emits from triggering external reset reconciliation.
+	isLocalEmitEcho.value = true;
 	emit('input', value);
+
+	if (localEmitEchoTimeout) clearTimeout(localEmitEchoTimeout);
+	localEmitEchoTimeout = setTimeout(() => {
+		isLocalEmitEcho.value = false;
+		localEmitEchoTimeout = null;
+	}, 120);
 }
 </script>
 

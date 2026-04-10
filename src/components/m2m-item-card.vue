@@ -106,7 +106,8 @@
 		<!-- Card Content (Expandable) -->
 		<transition name="expand">
 			<div
-				v-if="isExpanded && item.$type !== 'deleted' && item.$type !== 'unlinked'"
+				v-if="shouldRenderContent && item.$type !== 'deleted' && item.$type !== 'unlinked'"
+				v-show="isExpanded"
 				class="card-content"
 			>
 				<!-- Junction fields form (shown at top if junctionFieldLocation is 'top') -->
@@ -115,7 +116,7 @@
 					v-model="item.$junctionEdits"
 					:disabled="junctionFormDisabled"
 					:loading="item.$loading"
-					:initial-values="item.$junctionItem || {}"
+					:initial-values="junctionInitialValues"
 					:primary-key="item.$junctionId || '+'"
 					:fields="junctionFields"
 					:validation-errors="[]"
@@ -134,7 +135,7 @@
 					:disabled="formDisabled"
 					:loading="item.$loading"
 					:show-no-visible-fields="false"
-					:initial-values="item.$item || {}"
+					:initial-values="relatedInitialValues"
 					:primary-key="primaryKey"
 					:fields="fields"
 					:validation-errors="[]"
@@ -152,7 +153,7 @@
 					v-model="item.$junctionEdits"
 					:disabled="junctionFormDisabled"
 					:loading="item.$loading"
-					:initial-values="item.$junctionItem || {}"
+					:initial-values="junctionInitialValues"
 					:primary-key="item.$junctionId || '+'"
 					:fields="junctionFields"
 					:validation-errors="[]"
@@ -164,7 +165,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, nextTick } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { useI18n } from '@/composables/use-i18n';
 import type { DisplayItem } from '@/composables/use-m2m-items';
 import type { Field } from '@directus/types';
@@ -185,10 +186,6 @@ interface Props {
 	junctionFieldLocation?: 'top' | 'bottom';
 }
 
-withDefaults(defineProps<Props>(), {
-	junctionFieldLocation: 'top',
-});
-
 const emit = defineEmits<{
 	(e: 'toggle-expand'): void;
 	(e: 'unlink'): void;
@@ -201,6 +198,110 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const menuActive = ref(false);
+const props = withDefaults(defineProps<Props>(), {
+	junctionFieldLocation: 'top',
+});
+const shouldRenderContent = ref(props.isExpanded);
+
+function normalizeM2OInitialValues(
+	values: Record<string, any>,
+	formFields?: Field[],
+): Record<string, any> {
+	if (!formFields || formFields.length === 0) return values;
+
+	const normalized = { ...values };
+
+	for (const field of formFields) {
+		const specials = field.meta?.special ?? [];
+		const isM2O = Array.isArray(specials)
+			? specials.includes('m2o')
+			: specials === 'm2o';
+
+		if (!isM2O) continue;
+
+		const currentValue = normalized[field.field];
+		if (!currentValue || typeof currentValue !== 'object' || Array.isArray(currentValue)) continue;
+
+		const foreignKeyColumn = field.schema?.foreign_key_column;
+		const fallbackId = currentValue.id ?? currentValue.value;
+		const nextValue = foreignKeyColumn
+			? currentValue[foreignKeyColumn] ?? fallbackId
+			: fallbackId;
+
+		if (nextValue !== undefined) {
+			normalized[field.field] = nextValue;
+		}
+	}
+
+	return normalized;
+}
+
+const relatedInitialValues = ref<Record<string, any>>({
+	...(props.item.$item || {}),
+	...(props.item.$edits || {}),
+});
+
+const junctionInitialValues = ref<Record<string, any>>({
+	...(props.item.$junctionItem || {}),
+	...(props.item.$junctionEdits || {}),
+});
+
+function refreshInitialSnapshots() {
+	relatedInitialValues.value = normalizeM2OInitialValues({
+		...(props.item.$item || {}),
+		...(props.item.$edits || {}),
+	}, props.fields);
+
+	junctionInitialValues.value = normalizeM2OInitialValues({
+		...(props.item.$junctionItem || {}),
+		...(props.item.$junctionEdits || {}),
+	}, props.junctionFields);
+}
+
+watch(
+	() => props.isExpanded,
+	(expanded) => {
+		if (expanded) {
+			if (!shouldRenderContent.value) {
+				refreshInitialSnapshots();
+			}
+
+			shouldRenderContent.value = true;
+		}
+	},
+);
+
+watch(
+	() => props.item.$type,
+	(type) => {
+		if (type === 'deleted' || type === 'unlinked') {
+			shouldRenderContent.value = false;
+		}
+	},
+);
+
+watch(
+	() => props.item.$junctionId,
+	() => {
+		refreshInitialSnapshots();
+	},
+);
+
+watch(
+	() => props.item.$item,
+	() => {
+		refreshInitialSnapshots();
+	},
+	{ deep: true },
+);
+
+watch(
+	() => props.item.$junctionItem,
+	() => {
+		refreshInitialSnapshots();
+	},
+	{ deep: true },
+);
 
 async function handleDelete() {
 	menuActive.value = false;

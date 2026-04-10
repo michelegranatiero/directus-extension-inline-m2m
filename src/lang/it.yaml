@@ -1,0 +1,40 @@
+interfaces:
+  inline-m2m:
+    no-read-permission: Non hai i permessi per leggere questi record.
+    no-update-permission: Non hai i permessi per aggiornare questi record.
+    no-items: Nessun elemento
+    create-new: Crea Nuovo
+    add-existing: Aggiungi Esistente
+    select-existing: Seleziona Elementi Esistenti
+    select-items: Seleziona Elementi
+    confirm-selection: Conferma Selezione
+    search-placeholder: Cerca elementi...
+    no-items-found: Nessun elemento trovato
+    no-items-available: Non ci sono elementi disponibili in questa collection.
+    try-different-search: Prova un termine di ricerca diverso.
+    visible-columns: Colonne Visibili
+    configure-columns: Configura Colonne
+    load-more: Carica Altri
+    new: Nuovo
+    modified: Modificato
+    unlinked: Scollegato
+    deleted: Eliminato
+    existing: Esistente
+    new-item: 'Nuovo elemento #{index}'
+    show-more: 'Mostra altri {count} elementi'
+    more-options: Altre Opzioni
+    unlink: Scollega
+    unlink-description: Rimuovi solo da questo elemento
+    delete-everywhere: Elimina Ovunque
+    delete-description: Elimina definitivamente questo elemento da tutte le posizioni
+    delete-blocked: Impossibile eliminare l'elemento
+    delete-blocked-description: Questo elemento e collegato ad altre collection. Usa 'Scollega' per rimuoverlo da questa relazione senza eliminarlo.
+    remove: Rimuovi
+    undo-delete: Annulla Eliminazione
+    undo-unlink: Annulla Scollegamento
+    confirm-delete-title: Conferma Eliminazione
+    confirm-delete-text: Sei sicuro di voler eliminare definitivamente questo elemento?
+    cancel: Annulla
+    delete: Elimina
+    junction-fields: Proprieta Collegamento
+    related-fields: Dettagli Elemento
